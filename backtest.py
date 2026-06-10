@@ -22,6 +22,12 @@ EVAL_FROM = "2018-01-01"     # score matches on/after this date
 ELO_HOME_ADV = 100           # home advantage used INSIDE the Elo rating system
 INIT = 1500
 
+def is_major(t):
+    """Major-tournament FINALS (not qualifiers) — the WC-like population."""
+    t = t.lower()
+    return 'qual' not in t and any(x in t for x in
+        ('world cup', 'copa am', 'african cup', 'asian cup', 'uefa euro'))
+
 # ---------- Elo reconstruction ----------
 def k_factor(tour):
     t = tour.lower()
@@ -130,6 +136,9 @@ def main():
     vN, corr, mae = validate(elo)
     n, m, base, cal = score(evals)
     skill = 1 - m['rps']/m['base_rps']
+    majors = [e for e in evals if is_major(e[5])]
+    nM, mM, _, _ = score(majors)
+    skillM = 1 - mM['rps']/mM['base_rps']
     L = []
     P = lambda s: (print(s), L.append(s))
     P("# WC2026 Engine — Backtest Report\n")
@@ -141,6 +150,9 @@ def main():
     P("## Headline — does the model beat climatology?\n")
     P(f"- **RPS (model): {m['rps']:.4f}**  vs  base-rate {m['base_rps']:.4f}  "
       f"→ **skill score {skill*100:+.1f}%** (positive = adds value; lower RPS is better)")
+    P(f"  - ⚠️ That figure is padded by easy friendlies/qualifiers. On **major-tournament "
+      f"finals only** ({nM:,} games — the WC-like population), skill is **{skillM*100:+.1f}%**: "
+      f"the honest number for World Cup expectations.")
     P(f"- **Outcome accuracy (3-way): {m['acc']*100:.1f}%**  vs  higher-Elo-wins {m['naive_acc']*100:.1f}%")
     P(f"- Goal-difference sign correct: {m['sign']*100:.1f}%  |  GD mean-abs-error: {m['gd_mae']:.2f}")
     P(f"- Exact-scoreline hit rate: {m['exact']*100:.1f}%  (≈10-12% is strong for football)")

@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "buildCommand": "rm -rf dist && cp -r wc_site/. dist",
+  "outputDirectory": "dist",
+  "cleanUrls": true
+}

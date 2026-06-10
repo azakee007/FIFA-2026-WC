@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wc2026",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/azakee007/Documents/GitHub/FIFA 2026 WC/serve.py", "8001"],
+      "port": 8001
+    }
+  ]
+}

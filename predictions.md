@@ -1,7 +1,9 @@
 # FIFA World Cup 2026 - Group Stage Predictions
-*Lean Elo + Poisson + Monte Carlo engine. 200,000 sims. Pure-Elo baseline.*
+*Lean Elo + Poisson + Monte Carlo engine. 200,000 sims. Verified-Elo baseline.*
 
 > Elo: live World Football Elo (eloratings.net `World.tsv`, Jun 2026) for all 48 teams.
+
+> **Cohesion:** the `cohesion_bonus` override column is **zeroed (reference-only)** — no unvalidated judgment is applied; these predictions are pure **verified Elo** (48/48 vs live `World.tsv`). Add a value in `teams.csv` only with a citable reason (confirmed injury, managerial change); it renders with a `†` flag.
 
 
 ## Group A

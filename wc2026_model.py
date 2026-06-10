@@ -26,6 +26,8 @@ CONFIG = dict(
     ELO_TO_SUP     = 0.0050,# Elo diff -> goal supremacy (200 Elo ~ 1.0 goal)
     BASE_TOTAL     = 2.40,  # baseline total goals in an even game
     MISMATCH_TOTAL = 0.40,  # extra total goals scaled by |supremacy| (blowout fix)
+    MISMATCH_CAP   = 3.0,   # ceiling on the supremacy->total-goals term (raise to let blowouts breathe)
+    SUP_CONVEX     = 0.0,   # convex supremacy expansion at extremes; TESTED & REJECTED (no GD-MAE/RPS gain) -> keep 0
     GOAL_FLOOR     = 0.12,  # min expected goals for the underdog (relaxed: bigger blowouts)
     GRID           = 10,    # max goals per side for the analytic pmf grid
     N_SIMS         = 200000,# Monte Carlo iterations (global, all 72 matches)
@@ -40,18 +42,22 @@ def load_teams(path):
         for r in csv.DictReader(f):
             teams[r['team']] = dict(
                 group=r['group'], elo=float(r['elo']), src=r['elo_src'],
-                host=int(r['host']), top5=float(r['top5pct']), age=float(r['avg_age']))
+                host=int(r['host']), top5=float(r['top5pct']), age=float(r['avg_age']),
+                cohesion=float(r.get('cohesion_bonus', 0)))
     return teams
 
 # --------------------------- match model ---------------------------
 def expected_goals(ta, tb, C):
     """Return (lambda_A, lambda_B) expected goals from Elo + host advantage."""
-    ea = ta['elo'] + (C['HOME_ADV_ELO'] if ta['host'] else 0)
-    eb = tb['elo'] + (C['HOME_ADV_ELO'] if tb['host'] else 0)
+    ea = ta['elo'] + ta.get('cohesion', 0) + (C['HOME_ADV_ELO'] if ta['host'] else 0)
+    eb = tb['elo'] + tb.get('cohesion', 0) + (C['HOME_ADV_ELO'] if tb['host'] else 0)
     sup_raw = (ea - eb) * C['ELO_TO_SUP']
-    total   = C['BASE_TOTAL'] + C['MISMATCH_TOTAL'] * min(abs(sup_raw), 3.0)
+    # convex expansion: leaves small gaps ~unchanged, widens big ones (blowouts
+    # are bigger than a linear Elo->goals map predicts; see diagnostics +3 bin).
+    sup_adj = sup_raw * (1 + C['SUP_CONVEX'] * sup_raw * sup_raw)
+    total   = C['BASE_TOTAL'] + C['MISMATCH_TOTAL'] * min(abs(sup_adj), C['MISMATCH_CAP'])
     cap     = total - 2 * C['GOAL_FLOOR']
-    sup     = max(-cap, min(cap, sup_raw))
+    sup     = max(-cap, min(cap, sup_adj))
     return (total + sup) / 2.0, (total - sup) / 2.0
 
 _FACT = [math.factorial(k) for k in range(40)]
@@ -155,11 +161,25 @@ def main():
     groups, fixtures = build(teams)
     res, simstats = simulate(teams, groups, fixtures, CONFIG)
 
+    coh = {t: teams[t]['cohesion'] for t in teams}
+    active = sorted((t for t in teams if coh[t]), key=lambda t: coh[t])
+    if active:
+        cohnote = ("> **Cohesion (†):** a hand-assigned squad-continuity nudge (capped "
+                   "**±20 Elo ≈ ±0.1 goal**) is layered on Elo for flagged teams. "
+                   "**Analyst judgment, NOT backtested** (no cohesion time-series exists "
+                   "to validate it). Active: "
+                   + ", ".join(f"{t} ({coh[t]:+.0f})" for t in active) + ".\n")
+    else:
+        cohnote = ("> **Cohesion:** the `cohesion_bonus` override column is **zeroed "
+                   "(reference-only)** — no unvalidated judgment is applied; these "
+                   "predictions are pure **verified Elo** (48/48 vs live `World.tsv`). "
+                   "Add a value in `teams.csv` only with a citable reason (confirmed "
+                   "injury, managerial change); it renders with a `†` flag.\n")
     out = ["# FIFA World Cup 2026 - Group Stage Predictions",
            "*Lean Elo + Poisson + Monte Carlo engine. "
-           f"{CONFIG['N_SIMS']:,} sims. Pure-Elo baseline.*\n",
+           f"{CONFIG['N_SIMS']:,} sims. Verified-Elo baseline.*\n",
            "> Elo: live World Football Elo (eloratings.net `World.tsv`, "
-           "Jun 2026) for all 48 teams.\n"]
+           "Jun 2026) for all 48 teams.\n", cohnote]
 
     draws = tot = blow = 0
     flag = {t: teams[t]['src'] for t in teams}
@@ -171,7 +191,7 @@ def main():
             gg, A, B, md, lamA, lamB = fix[:6]
             date = fix[6] if len(fix) > 6 else ''
             (i, j), (pA, pD, pB), top = match_analytics(lamA, lamB, CONFIG['GRID'])
-            tag = lambda t: t + ('*' if flag[t] == 'est' else '')
+            tag = lambda t: t + ('*' if flag[t] == 'est' else '') + ('†' if coh[t] else '')
             datestr = f"MD{md} {date[5:10]}" if date else f"MD{md}"
             out.append(f"| {datestr} | {tag(A)} vs {tag(B)} | **{i}-{j}** | {lamA:.1f}-{lamB:.1f} | "
                        f"{pA*100:.0f}% | {pD*100:.0f}% | {pB*100:.0f}% |")
@@ -182,7 +202,7 @@ def main():
         gr = sorted(groups[g], key=lambda t: -res[t]['padv'])
         for t in gr:
             r = res[t]
-            out.append(f"| {t}{'*' if flag[t]=='est' else ''} | {r['exp_pts']:.2f} | "
+            out.append(f"| {tag(t)} | {r['exp_pts']:.2f} | "
                        f"{r['p1']*100:.0f}% | {(r['p1']+r['p2'])*100:.0f}% | "
                        f"{r['padv']*100:.0f}% |")
 
@@ -218,7 +238,7 @@ def main():
         gr = sorted(groups[g], key=lambda t: -res[t]['p1'])
         w = gr[0]; ru = sorted(groups[g], key=lambda t: -(res[t]['p1']+res[t]['p2']))
         print(f"  {g}: {w} ({res[w]['p1']*100:.0f}% win)  |  "
-              f"top2: {ru[0]['team'] if False else ru[0]}, {ru[1]}")
+              f"top2: {ru[0]}, {ru[1]}")
     print("\nWrote predictions.md")
 
 if __name__ == '__main__':

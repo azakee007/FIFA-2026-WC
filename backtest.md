@@ -8,6 +8,7 @@
 ## Headline — does the model beat climatology?
 
 - **RPS (model): 0.1702**  vs  base-rate 0.2281  → **skill score +25.4%** (positive = adds value; lower RPS is better)
+  - ⚠️ That figure is padded by easy friendlies/qualifiers. On **major-tournament finals only** (626 games — the WC-like population), skill is **+18.9%**: the honest number for World Cup expectations.
 - **Outcome accuracy (3-way): 60.2%**  vs  higher-Elo-wins 60.2%
 - Goal-difference sign correct: 57.2%  |  GD mean-abs-error: 1.33
 - Exact-scoreline hit rate: 10.3%  (≈10-12% is strong for football)

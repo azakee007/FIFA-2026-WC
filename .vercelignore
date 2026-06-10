@@ -1,0 +1,9 @@
+.git
+__pycache__
+squad-lists.pdf
+backtest.md
+champion.md
+predictions.md
+*.tsv
+results.csv
+serve.py
