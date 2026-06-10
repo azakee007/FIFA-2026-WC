@@ -40,7 +40,10 @@ def pois(lam):
         if p <= L: return k - 1
 
 def expected_goals_per_team(teams, groups, fixtures, N=15000):
-    """Expected goals scored per team across the whole tournament (group + KO)."""
+    """Expected goals per team across the whole tournament (group + KO).
+    Returns (eg, tg, idx): eg = {team: mean tournament goals}, tg = the per-sim
+    (T, N) goal matrix (so the Golden-Boot sim can see each team's actual output
+    in each simulated run, not just the mean), idx = {team: row in tg}."""
     HA=CONFIG['HOME_ADV_ELO']; SUP=CONFIG['ELO_TO_SUP']
     BASE=CONFIG['BASE_TOTAL']; MIS=CONFIG['MISMATCH_TOTAL']; FLOOR=CONFIG['GOAL_FLOOR']
     names=list(teams); idx={n:i for i,n in enumerate(names)}
@@ -61,12 +64,12 @@ def expected_goals_per_team(teams, groups, fixtures, N=15000):
     TKs=np.stack([TK[g] for g in GL]); qual=np.stack([(TKs>TKs[i]).sum(0)<8 for i in range(12)])
     Wl={g:W[g].astype(int).tolist() for g in GL}; Rl={g:Rk[g].astype(int).tolist() for g in GL}
     Tl={g:Th[g].astype(int).tolist() for g in GL}; ql=[qual[i].tolist() for i in range(12)]
-    goals=gf.sum(1).astype(float)
-    def play(a,b):
+    tg=gf.copy()                       # (T, N) total tournament goals per team per sim
+    def play(a,b,s):
         sup=(elo[a]-elo[b])*SUP; tot=BASE+MIS*min(abs(sup),3.0)
         c=tot-2*FLOOR; sup=max(-c,min(c,sup))
         ga=pois((tot+sup)/2); gb=pois((tot-sup)/2)
-        goals[a]+=ga; goals[b]+=gb
+        tg[a,s]+=ga; tg[b,s]+=gb
         if ga>gb: return a,b
         if gb>ga: return b,a
         return (a,b) if random.random()<1/(1+10**((elo[b]-elo[a])/400)) else (b,a)
@@ -76,39 +79,142 @@ def expected_goals_per_team(teams, groups, fixtures, N=15000):
         for sid,Lg in match_thirds({GL[i] for i in range(12) if ql[i][s]}).items():
             slot[sid]=Tl[Lg][s]
         win={}; lose={}
-        for mid,l,r in R32: win[mid],lose[mid]=play(slot[l],slot[r])
-        for mid,l,r in LATER: win[mid],lose[mid]=play(win[l],win[r])
-        play(lose[101],lose[102])
-    return {names[i]: goals[i]/N for i in range(T)}
+        for mid,l,r in R32: win[mid],lose[mid]=play(slot[l],slot[r],s)
+        for mid,l,r in LATER: win[mid],lose[mid]=play(win[l],win[r],s)
+        play(lose[101],lose[102],s)
+    return {names[i]: tg[i].mean() for i in range(T)}, tg, idx
 
-# Goal-share map: team -> [(player, share of the team's tournament goals), ...].
-# Multiple attackers per team so co-talismen (e.g. Messi AND Lautaro) all compete;
-# penalty-takers / focal strikers carry higher shares. Shares sum to <1 per team
-# (the remainder is spread across the rest of the squad + own goals).
+# ---- 3-channel attack model -------------------------------------------------
+# A team's expected goals split into three sources that distribute very
+# differently among players:
+#   * open play  -> SPREAD across the named attackers by role (op-share below).
+#   * penalties  -> CONCENTRATED on the one designated taker.
+#   * direct FKs -> CONCENTRATED on the one designated free-kick specialist.
+# That concentration is exactly why penalty/FK takers (Kane, Salah, Messi...)
+# out-score equally good strikers who don't take them.
+#
+# Channel fractions are VAR-era World Cup priors (penalties ~8-12% of goals,
+# direct FKs ~1.5-2%). eg[team] is already realised goals, so conversion is
+# baked in -- these are shares of GOALS, not of attempts.
+PEN_FRAC = 0.10    # share of a team's goals scored from the penalty spot
+FK_FRAC  = 0.015   # share scored from direct free kicks
+
+# team -> dict(op=[(player, open-play share of team goals), ...] (sums <1; the
+#              remainder is non-talisman squad goals + own goals),
+#              pen = penalty taker  (str, or [(player, weight), ...] to split),
+#              fk  = free-kick taker (str, or None)).
+# op-shares + the set-piece fractions assigned sum to <1 per team.
+# ROLE / TAKER ASSIGNMENTS ARE ANALYST PRIORS -- the match-RPS backtest cannot
+# see individual goals -- so the page discloses the scorer block with a '†'.
 SCORERS = {
- 'France':[('Kylian Mbappé',0.40),('Marcus Thuram',0.15),('Michael Olise',0.12),('Ousmane Dembélé',0.10)],
- 'Argentina':[('Lautaro Martínez',0.26),('Lionel Messi',0.25),('Julián Álvarez',0.19)],
- 'Spain':[('Lamine Yamal',0.22),('Mikel Oyarzabal',0.20),('Dani Olmo',0.16),('Álvaro Morata',0.12)],
- 'England':[('Harry Kane',0.42),('Jude Bellingham',0.15),('Bukayo Saka',0.14)],
- 'Brazil':[('Vinícius Júnior',0.26),('Raphinha',0.20),('Matheus Cunha',0.15),('Endrick',0.12)],
- 'Portugal':[('Cristiano Ronaldo',0.32),('Rafael Leão',0.17),('Bruno Fernandes',0.15)],
- 'Norway':[('Erling Haaland',0.54),('Martin Ødegaard',0.14)],
- 'Netherlands':[('Cody Gakpo',0.25),('Memphis Depay',0.22),('Donyell Malen',0.13)],
- 'Belgium':[('Romelu Lukaku',0.40),('Kevin De Bruyne',0.16),('Jérémy Doku',0.13)],
- 'Colombia':[('Luis Díaz',0.32),('Rafael Santos Borré',0.18),('James Rodríguez',0.15)],
- 'Germany':[('Kai Havertz',0.22),('Florian Wirtz',0.20),('Jamal Musiala',0.18)],
- 'Uruguay':[('Darwin Núñez',0.40),('Facundo Pellistri',0.13)],
- 'Egypt':[('Mohamed Salah',0.50),('Omar Marmoush',0.18)],
- 'Ecuador':[('Enner Valencia',0.36),('Kendry Páez',0.12)],
- 'Croatia':[('Andrej Kramarić',0.24),('Ante Budimir',0.22)],
- 'Morocco':[('Youssef En-Nesyri',0.36),('Brahim Díaz',0.16)],
- 'Mexico':[('Raúl Jiménez',0.34),('Santiago Giménez',0.22)],
- 'Japan':[('Ayase Ueda',0.24),('Kaoru Mitoma',0.20)],
- 'Switzerland':[('Breel Embolo',0.34),('Dan Ndoye',0.16)],
- 'Senegal':[('Nicolas Jackson',0.30),('Ismaïla Sarr',0.18)],
- 'Turkiye':[('Kerem Aktürkoğlu',0.24),('Arda Güler',0.20)],
- 'USA':[('Folarin Balogun',0.32),('Christian Pulisic',0.22)],
+ 'France':dict(op=[('Kylian Mbappé',0.30),('Marcus Thuram',0.16),('Michael Olise',0.12),('Ousmane Dembélé',0.10)],
+               pen='Kylian Mbappé', fk='Kylian Mbappé'),
+ 'Argentina':dict(op=[('Lautaro Martínez',0.26),('Lionel Messi',0.15),('Julián Álvarez',0.19)],
+               pen='Lionel Messi', fk='Lionel Messi'),
+ 'Spain':dict(op=[('Lamine Yamal',0.22),('Mikel Oyarzabal',0.11),('Dani Olmo',0.16),('Álvaro Morata',0.12)],
+               pen='Mikel Oyarzabal', fk='Lamine Yamal'),
+ 'England':dict(op=[('Harry Kane',0.32),('Jude Bellingham',0.15),('Bukayo Saka',0.14)],
+               pen='Harry Kane', fk='Bukayo Saka'),
+ 'Brazil':dict(op=[('Vinícius Júnior',0.26),('Raphinha',0.10),('Matheus Cunha',0.15),('Endrick',0.12)],
+               pen='Raphinha', fk='Raphinha'),
+ 'Portugal':dict(op=[('Cristiano Ronaldo',0.21),('Rafael Leão',0.17),('Bruno Fernandes',0.15)],
+               pen='Cristiano Ronaldo', fk='Cristiano Ronaldo'),
+ 'Norway':dict(op=[('Erling Haaland',0.44),('Martin Ødegaard',0.14)],
+               pen='Erling Haaland', fk='Martin Ødegaard'),
+ 'Netherlands':dict(op=[('Cody Gakpo',0.25),('Memphis Depay',0.11),('Donyell Malen',0.13)],
+               pen='Memphis Depay', fk='Memphis Depay'),
+ 'Belgium':dict(op=[('Romelu Lukaku',0.30),('Kevin De Bruyne',0.105),('Jérémy Doku',0.13)],
+               pen='Kevin De Bruyne', fk='Kevin De Bruyne'),
+ 'Colombia':dict(op=[('Luis Díaz',0.30),('Rafael Santos Borré',0.18),('James Rodríguez',0.10)],
+               pen='James Rodríguez', fk='James Rodríguez'),
+ 'Germany':dict(op=[('Kai Havertz',0.18),('Florian Wirtz',0.18),('Jamal Musiala',0.18)],
+               pen='Kai Havertz', fk='Florian Wirtz'),
+ 'Uruguay':dict(op=[('Darwin Núñez',0.32),('Facundo Pellistri',0.13)],
+               pen='Darwin Núñez', fk=None),
+ 'Egypt':dict(op=[('Mohamed Salah',0.385),('Omar Marmoush',0.18)],
+               pen='Mohamed Salah', fk='Mohamed Salah'),
+ 'Ecuador':dict(op=[('Enner Valencia',0.27),('Kendry Páez',0.12)],
+               pen='Enner Valencia', fk=None),
+ 'Croatia':dict(op=[('Andrej Kramarić',0.15),('Ante Budimir',0.22)],
+               pen='Andrej Kramarić', fk=None),
+ 'Morocco':dict(op=[('Youssef En-Nesyri',0.26),('Brahim Díaz',0.16)],
+               pen='Youssef En-Nesyri', fk=None),
+ 'Mexico':dict(op=[('Raúl Jiménez',0.24),('Santiago Giménez',0.22)],
+               pen='Raúl Jiménez', fk='Raúl Jiménez'),
+ 'Japan':dict(op=[('Ayase Ueda',0.14),('Kaoru Mitoma',0.20)],
+               pen='Ayase Ueda', fk=None),
+ 'Switzerland':dict(op=[('Breel Embolo',0.24),('Dan Ndoye',0.16)],
+               pen='Breel Embolo', fk=None),
+ 'Senegal':dict(op=[('Nicolas Jackson',0.20),('Ismaïla Sarr',0.18)],
+               pen='Nicolas Jackson', fk=None),
+ 'Turkiye':dict(op=[('Kerem Aktürkoğlu',0.14),('Arda Güler',0.20)],
+               pen='Kerem Aktürkoğlu', fk='Arda Güler'),
+ 'USA':dict(op=[('Folarin Balogun',0.28),('Christian Pulisic',0.105)],
+               pen='Christian Pulisic', fk='Christian Pulisic'),
 }
+
+def project_scorers(eg):
+    """Project per-player tournament goals from the 3-channel attack model.
+    Returns a list of dicts (sorted desc by goals) with the open-play (op),
+    penalty (pen) and free-kick (fk) goal components broken out."""
+    proj = {}                                    # (team, player) -> components
+    def add(team, player, key, val):
+        d = proj.setdefault((team, player),
+                            dict(team=team, player=player, op=0.0, pen=0.0, fk=0.0))
+        d[key] += val
+    for team, cfg in SCORERS.items():
+        g = eg[team]
+        for player, sh in cfg.get('op', []):
+            add(team, player, 'op', sh * g)
+        for chan, frac in (('pen', PEN_FRAC), ('fk', FK_FRAC)):
+            taker = cfg.get(chan)
+            if not taker:
+                continue
+            takers = taker if isinstance(taker, list) else [(taker, 1.0)]
+            for player, w in takers:
+                add(team, player, chan, w * frac * g)
+    out = []
+    for d in proj.values():
+        d['goals'] = d['op'] + d['pen'] + d['fk']
+        out.append(d)
+    out.sort(key=lambda d: -d['goals'])
+    return out
+
+def _split_team_goals(total, shares, rng):
+    """Allocate each sim's integer team goal count among its scorers so they
+    COMPETE for the same goals (sequential-binomial = multinomial draw, fully
+    vectorised over sims). `total` is the (N,) per-sim team goals; `shares` the
+    players' total goal-shares (sum <1, remainder = squad). Returns one (N,)
+    goal array per share."""
+    remaining = total.astype(np.int64).copy(); rem_p = 1.0; out = []
+    for sh in shares:
+        p = min(sh / rem_p, 1.0) if rem_p > 1e-9 else 0.0
+        g = rng.binomial(remaining, p)
+        out.append(g); remaining = remaining - g; rem_p -= sh
+    return out
+
+def simulate_golden_boot(proj, eg, tg, idx, rng):
+    """Monte-Carlo Golden Boot from the per-sim team-goal matrix. In every
+    simulated tournament each player's goals are a (competed-for) share of their
+    team's ACTUAL goals that run, so the distribution carries both deep-run and
+    finishing variance. The winner is the per-sim leader -> P(win Golden Boot),
+    which (unlike the mean) rewards a high ceiling. Ties split the credit."""
+    byteam = defaultdict(list)
+    for d in proj: byteam[d['team']].append(d)
+    players = []; arrays = []
+    for team, lst in byteam.items():
+        shares = [d['goals'] / eg[team] if eg[team] > 0 else 0.0 for d in lst]
+        for d, g in zip(lst, _split_team_goals(tg[idx[team]], shares, rng)):
+            players.append((d['player'], d['team'])); arrays.append(g)
+    G = np.array(arrays)                       # (P, N) integer goals per sim
+    N = G.shape[1]
+    topval = G.max(0)                          # winning total in each sim
+    is_top = (G == topval)
+    credit = (is_top.astype(float) / is_top.sum(0)).sum(1)   # split ties
+    pwin = {players[i]: credit[i] / N for i in range(len(players))}
+    boot = dict(exp=float(topval.mean()), median=float(np.median(topval)),
+                p_ge7=float((topval >= 7).mean()), p_ge8=float((topval >= 8).mean()))
+    return pwin, boot
 
 def main():
     teams = load_teams(os.path.join(HERE,'teams.csv'))
@@ -159,25 +265,37 @@ def main():
             if m: champ_rows.append(dict(rank=int(m.group(1)),team=m.group(2).strip(),
                   champ=float(m.group(3)),final=float(m.group(4)),semi=float(m.group(5))))
 
-    # scorer projection: each player's EXPECTED goals = their team's expected
-    # tournament goals (group + simulated knockout run) x their share of the attack.
-    # Raw expected goals -- no scaling. Multiple scorers per team compete head-to-head.
-    eg = expected_goals_per_team(teams, groups, fixtures)
-    proj=[]
-    for team,lst in SCORERS.items():
-        for player,share in lst:
-            proj.append(dict(player=player,team=team,share=share,goals=round(eg[team]*share,1)))
-    proj.sort(key=lambda p:-p['goals'])
-    scorers=[dict(rank=k+1,player=p['player'],team=p['team'],goals=p['goals'],
-                  share=round(p['share']*100)) for k,p in enumerate(proj[:6])]
-    # verification print: full top-12 + where Messi and Valencia land
-    print("scorer ranking (expected goals):")
-    for k,p in enumerate(proj[:12],1): print(f"  {k:2} {p['player']:<20} {p['team']:<11} {p['goals']}")
-    for nm in ('Lionel Messi','Enner Valencia'):
-        r=next((i+1 for i,p in enumerate(proj) if p['player']==nm),None)
-        print(f"  -> {nm}: rank {r}")
-    print(f"  eg top teams: " + ", ".join(f"{t} {eg[t]:.1f}" for t in
-          sorted(eg,key=lambda x:-eg[x])[:6]))
+    # scorer projection (3-channel attack model): each player's EXPECTED goals =
+    # open-play share x team eg  +  (penalty pool if taker)  +  (FK pool if taker).
+    # eg[team] is the team's expected tournament goals (group + simulated KO run).
+    # Raw expected goals -- no scaling. Set-piece pools are concentrated on one
+    # taker, which is why pen/FK takers out-score equal open-play strikers.
+    eg, tg, idx = expected_goals_per_team(teams, groups, fixtures)
+    proj = project_scorers(eg)
+    # Golden-Boot sim: P(win) is an order statistic (the per-sim leader), so it
+    # rewards a high ceiling, not just a high mean -- and the typical WINNING
+    # total runs above any single player's expected goals.
+    pwin, boot = simulate_golden_boot(proj, eg, tg, idx, np.random.default_rng(11))
+    def sptag(d):
+        t = (['PK'] if d['pen'] > 0 else []) + (['FK'] if d['fk'] > 0 else [])
+        return '+'.join(t)
+    scorers=[dict(rank=k+1, player=d['player'], team=d['team'],
+                  goals=round(d['goals'],1),
+                  share=round(d['goals']/eg[d['team']]*100),
+                  op=round(d['op'],1), sp=round(d['pen']+d['fk'],1), tag=sptag(d),
+                  pwin=round(pwin.get((d['player'],d['team']),0)*100))
+             for k,d in enumerate(proj[:6])]
+    # verification print: expected-goals top-12 + the P(win Golden Boot) ranking
+    print("scorer ranking (expected goals, 3-channel):")
+    for k,d in enumerate(proj[:12],1):
+        print(f"  {k:2} {d['player']:<20} {d['team']:<11} {d['goals']:.1f}"
+              f"  (op {d['op']:.1f} + set-piece {d['pen']+d['fk']:.1f})"
+              f"  P(win) {pwin.get((d['player'],d['team']),0)*100:.1f}%")
+    print(f"  Golden Boot winning total: mean {boot['exp']:.1f}, median {boot['median']:.0f}"
+          f"  | P(>=7) {boot['p_ge7']*100:.0f}%  P(>=8) {boot['p_ge8']*100:.0f}%")
+    gb = sorted(((p,t,w) for (p,t),w in pwin.items()), key=lambda x:-x[2])[:8]
+    print("  most likely Golden Boot winner:")
+    for p,t,w in gb: print(f"     {p:<20} {t:<11} {w*100:.1f}%")
 
     DATA = dict(
         champion=champ_rows[0] if champ_rows else None,
@@ -186,7 +304,9 @@ def main():
         groups=gdata,
         meta=dict(sims=CONFIG['N_SIMS'], champSigma=sigma,
                   draws=draws, ngames=ngames, goalsPerGame=round(tot/ngames,2),
-                  simDraw=round(simstats['draw']*100), simGoals=round(simstats['goals'],2)),
+                  simDraw=round(simstats['draw']*100), simGoals=round(simstats['goals'],2),
+                  bootExp=round(boot['exp'],1), bootMedian=round(boot['median']),
+                  bootFav=gb[0][0], bootFavPct=round(gb[0][2]*100)),
     )
     os.makedirs(os.path.join(HERE,'wc_site'), exist_ok=True)
     with open(os.path.join(HERE,'wc_site','data.js'),'w',encoding='utf-8') as f:

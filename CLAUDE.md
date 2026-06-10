@@ -73,22 +73,45 @@ CONFIG = dict(
 | 7 | Colombia | 4.8% | 10.0% | 18.5% |
 | 8 | Netherlands | 3.3% | 7.4% | 16.7% |
 
-### Top scorers (expected goals, raw — no scaling)
-| Rank | Player | Team | Proj. Goals |
-|---|---|---|---|
-| 1 | Kylian Mbappé | France | 4.8 |
-| 2 | Harry Kane | England | 4.8 |
-| 3 | Erling Haaland | Norway | 3.8 |
-| 4 | Lautaro Martínez | Argentina | 3.5 |
-| 5 | Lamine Yamal | Spain | 3.5 |
-| 6 | Romelu Lukaku | Belgium | 3.5 |
-| 7 | Lionel Messi | Argentina | 3.4 |
+### Top scorers (expected goals, raw — no scaling) — 3-channel attack model †
+| Rank | Player | Team | Proj. Goals | open play + set pieces |
+|---|---|---|---|---|
+| 1 | Kylian Mbappé | France | 5.0 | 3.6 + 1.4 (PK+FK) |
+| 2 | Harry Kane | England | 4.8 | 3.6 + 1.1 (PK) |
+| 3 | Erling Haaland | Norway | 3.8 | 3.1 + 0.7 (PK) |
+| 4 | Lamine Yamal | Spain | 3.7 | 3.5 + 0.2 (FK) |
+| 5 | Lionel Messi | Argentina | 3.6 | 2.0 + 1.5 (PK+FK) |
+| 6 | Lautaro Martínez | Argentina | 3.5 | 3.5 + 0.0 |
+| 7 | Enner Valencia | Ecuador | 3.5 | 2.5 + 0.9 (PK) |
 
-*Messi is #7 because Argentina splits goals three ways (Messi/Lautaro/Álvarez). The scorer logic now correctly models multiple attackers per team competing head-to-head.*
+*Each team's expected goals are split into open play (~88.5%, spread across its attackers by role), penalties (10%) and direct free kicks (1.5%); the set-piece pools are concentrated on the designated taker. Messi now ranks #5 (was #7) because he takes Argentina's penalties **and** free kicks — 1.5 of his 3.6 goals are set pieces, vs Lautaro's pure open-play 3.5. This is an **analyst prior** (`†`): the match-RPS backtest scores results, not individual goals, so it cannot validate the player split. See "3-channel top-scorer model" below.*
+
+### P(win Golden Boot) — Monte-Carlo order statistic
+| Rank | Player | Team | P(win) |
+|---|---|---|---|
+| 1 | Kylian Mbappé | France | 18% |
+| 2 | Harry Kane | England | 15% |
+| 3 | Erling Haaland | Norway | 8% |
+| 4 | Lamine Yamal | Spain | 6% |
+| 5 | Lionel Messi | Argentina | 6% |
+
+*Projected **winning total ~8.3 goals** (median 8; P(≥7)=87%, P(≥8)=63%) — above any single expected tally because the Boot goes to whoever runs hottest over the expanded 8-game path to the title (3 group + R32/R16/QF/SF/F). Built via `simulate_golden_boot()`.*
 
 ---
 
 ## Key Design Decisions & Audit Trail
+
+### 3-channel top-scorer model (`build_data.py`)
+- **Status: ADOPTED**. Replaced the old single opaque `share` per player (which bundled open play + penalties + free kicks into one hand-tuned number).
+- Each team's expected tournament goals `eg[team]` is split into three channels with different player allocation:
+  - **open play** — `1 − PEN_FRAC − FK_FRAC ≈ 88.5%`, **spread** across the named attackers by their `op` share (strikers high, wingers moderate; per-team shares sum to <1, remainder = squad/defenders/own goals).
+  - **penalties** — `PEN_FRAC = 0.10` of team goals, **concentrated** on the designated `pen` taker (VAR-era WC prior; eg is already realised goals so conversion is baked in).
+  - **direct free kicks** — `FK_FRAC = 0.015`, **concentrated** on the `fk` specialist.
+- `player_goals = op_share·eg + (pen? PEN_FRAC·eg) + (fk? FK_FRAC·eg)`. See `project_scorers()`.
+- **Why**: concentration of set-piece duty is the real reason pen/FK takers (Kane, Salah, Mbappé, Messi) win Golden Boots — the old flat share could only fake it by inflating one number. The new structure is auditable (per-channel breakdown shown on the page) and role-aware.
+- **Disclosure**: the player split (roles + taker assignments) is an **analyst prior** marked `†` — the leakage-free match-RPS backtest scores results, not individual goals, so it cannot validate it. The team-level `eg`, match, and champion models remain pure verified Elo.
+- **Taker assignments are priors** — set in the `SCORERS` dict (`pen=`/`fk=` keys). Update them when designated takers change (e.g. retirements, form). `pen` accepts a `[(player, weight), ...]` list to split a primary/backup.
+- **Golden-Boot probability sim (BUILT)**: `expected_goals_per_team()` now returns the per-sim `(T, N)` team-goal matrix `tg`; `simulate_golden_boot()` allocates each team's *actual* goals in each sim among its scorers via a sequential-binomial (= multinomial) draw, so teammates **compete for the same goals**, and crowns the per-sim leader. This yields each player's **P(win Golden Boot)** (an order statistic — rewards a high ceiling, not just the mean) and the projected **winning total** (`bootExp`/`bootMedian`), which runs above any single expected value. Ties split the credit. Current: winning total ~8.3 (median 8) over the 8-game path; favourite Mbappé ~18%, Kane ~15%, Haaland ~8%.
 
 ### Cohesion bonus
 - **Status: ZEROED (reference-only)**. Column `cohesion_bonus` exists in `teams.csv` with all values `0`.
@@ -171,6 +194,6 @@ git push
 ## Known Bugs Fixed (don't reintroduce)
 1. **`KeyError: 'cohesion'`** in backtest — fixed by using `.get('cohesion', 0)` in `expected_goals()`.
 2. **CSS Cyrillic typo** `--emerald:#42dд9a` — removed duplicate/malformed `--emerald` declarations.
-3. **Top scorer excluded Messi** — was a single-striker-per-team dict. Fixed: `SCORERS` dict allows multiple players per team; goals are raw expected goals (no scaling).
+3. **Top scorer logic** — originally a single-striker-per-team dict; then a flat per-player `share`; now a **3-channel model** (open play + penalties + free kicks) so set-piece takers are modelled explicitly, not faked via an inflated share. See "3-channel top-scorer model" above. Goals are still raw expected goals (no scaling).
 4. **squad_scan.py null bytes** — `grep` failed on `squad-lists.txt`. Fixed: binary read + `.replace(b'\x00', b'')`.
 5. **squad_scan.py parsed only 45/48** — regex failed on accented names. Fixed: changed to `r'^(.+?) \([A-Z]{3}\)\s*'`.

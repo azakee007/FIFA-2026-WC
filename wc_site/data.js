@@ -69,43 +69,67 @@ window.WC = {
    "rank": 1,
    "player": "Kylian Mbappé",
    "team": "France",
-   "goals": 4.8,
-   "share": 40
+   "goals": 5.0,
+   "share": 42,
+   "op": 3.6,
+   "sp": 1.4,
+   "tag": "PK+FK",
+   "pwin": 18
   },
   {
    "rank": 2,
    "player": "Harry Kane",
    "team": "England",
    "goals": 4.8,
-   "share": 42
+   "share": 42,
+   "op": 3.6,
+   "sp": 1.1,
+   "tag": "PK",
+   "pwin": 15
   },
   {
    "rank": 3,
    "player": "Erling Haaland",
    "team": "Norway",
    "goals": 3.8,
-   "share": 54
+   "share": 54,
+   "op": 3.1,
+   "sp": 0.7,
+   "tag": "PK",
+   "pwin": 8
   },
   {
    "rank": 4,
-   "player": "Lautaro Martínez",
-   "team": "Argentina",
-   "goals": 3.5,
-   "share": 26
+   "player": "Lamine Yamal",
+   "team": "Spain",
+   "goals": 3.7,
+   "share": 24,
+   "op": 3.5,
+   "sp": 0.2,
+   "tag": "FK",
+   "pwin": 6
   },
   {
    "rank": 5,
-   "player": "Lamine Yamal",
-   "team": "Spain",
-   "goals": 3.5,
-   "share": 22
+   "player": "Lionel Messi",
+   "team": "Argentina",
+   "goals": 3.6,
+   "share": 26,
+   "op": 2.0,
+   "sp": 1.6,
+   "tag": "PK+FK",
+   "pwin": 6
   },
   {
    "rank": 6,
-   "player": "Romelu Lukaku",
-   "team": "Belgium",
+   "player": "Lautaro Martínez",
+   "team": "Argentina",
    "goals": 3.5,
-   "share": 40
+   "share": 26,
+   "op": 3.5,
+   "sp": 0.0,
+   "tag": "",
+   "pwin": 5
   }
  ],
  "groups": {
@@ -1797,6 +1821,10 @@ window.WC = {
   "ngames": 72,
   "goalsPerGame": 2.82,
   "simDraw": 20,
-  "simGoals": 2.86
+  "simGoals": 2.86,
+  "bootExp": 8.3,
+  "bootMedian": 8,
+  "bootFav": "Kylian Mbappé",
+  "bootFavPct": 18
  }
 };

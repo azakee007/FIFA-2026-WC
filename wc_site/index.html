@@ -113,6 +113,16 @@ section{padding:84px 0 24px}
 .brow .tm{color:var(--muted);font-size:12.5px;display:flex;align-items:center;gap:7px;margin-top:2px}
 .brow .g{font-family:var(--mono);font-weight:600;font-size:21px;color:var(--text)}
 .brow .g small{color:var(--muted);font-size:11px;display:block;text-align:right;font-weight:400}
+.sptag{font-family:var(--mono);font-size:10px;letter-spacing:.07em;color:var(--gold);
+  border:1px solid rgba(233,198,106,.4);border-radius:5px;padding:1px 5px;background:rgba(233,198,106,.08)}
+.boot-hero .bd{font-family:var(--mono);color:var(--muted);font-size:12.5px;margin-top:14px;letter-spacing:.02em}
+.boot-hero .bd b{color:var(--gold);font-weight:600}
+.boot-hero .win{margin-top:16px;font-family:var(--mono);font-size:13px;color:var(--text)}
+.boot-hero .win b{color:var(--gold);font-size:18px;font-weight:700}
+.brow .g small.win{color:var(--gold);font-weight:600}
+.boot-note{margin-top:22px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+  line-height:1.6;border-top:1px solid var(--line);padding-top:16px;max-width:none}
+.boot-note b{color:var(--gold);font-weight:600}
 
 /* groups */
 .grp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:30px}
@@ -218,11 +228,12 @@ footer{color:var(--faint);font-size:12px;font-family:var(--mono);padding:24px 0 
   <section id="boot">
     <div class="kicker reveal">Golden Boot</div>
     <h2 class="h2 reveal">Top six scorers</h2>
-    <p class="sub reveal">Projected tournament goals — each contender&rsquo;s expected team output across their simulated run, weighted by their share of the attack.</p>
+    <p class="sub reveal">Projected tournament goals from a three-channel attack model — open play spread across each team&rsquo;s attackers, plus the penalty and direct-free-kick pools concentrated on the designated taker (which is why set-piece takers climb the list).</p>
     <div class="boot-grid">
       <div class="boot-hero reveal" id="bootHero"></div>
       <div class="boot-list reveal" id="bootList"></div>
     </div>
+    <p class="boot-note reveal" id="bootNote"></p>
   </section>
 
   <!-- GROUPS -->
@@ -301,18 +312,27 @@ document.getElementById('raceList').innerHTML=W.titleRace.map((t,i)=>`
  </div>`).join('');
 
 /* scorers */
+const SPLBL={PK:'penalties','FK':'free kicks','PK+FK':'pens + free kicks'};
+const sptag=t=>t?` <span class="sptag">${SPLBL[t]||t}</span>`:'';
 const s0=W.scorers[0];
 document.getElementById('bootHero').innerHTML=`
  <div class="rk">◆ PROJECTED GOLDEN BOOT</div>
  <div class="pl">${s0.player}</div>
- <div class="tm">${dot(s0.team)} ${s0.team} · ${s0.share}% of attack</div>
- <div class="big">${s0.goals}<span>proj. goals</span></div>`;
+ <div class="tm">${dot(s0.team)} ${s0.team} · ${s0.share}% of attack${sptag(s0.tag)}</div>
+ <div class="big">${s0.goals}<span>proj. goals</span></div>
+ <div class="bd"><b>${s0.op}</b> open play&nbsp;+&nbsp;<b>${s0.sp}</b> set pieces</div>
+ <div class="win"><b>${s0.pwin}%</b> chance to win the Golden Boot</div>`;
 document.getElementById('bootList').innerHTML=W.scorers.slice(1).map(s=>`
  <div class="brow reveal">
    <div class="rk">${s.rank}</div>
-   <div><div class="pl">${s.player}</div><div class="tm">${dot(s.team)} ${s.team} · ${s.share}% share</div></div>
-   <div class="g">${s.goals}<small>goals</small></div>
+   <div><div class="pl">${s.player}</div><div class="tm">${dot(s.team)} ${s.team} · ${s.share}% share${sptag(s.tag)}</div></div>
+   <div class="g">${s.goals}<small>goals</small><small class="win">${s.pwin}% to win</small></div>
  </div>`).join('');
+const mb=W.meta;
+document.getElementById('bootNote').innerHTML=
+ `Beyond expected goals, a Monte-Carlo Golden Boot sim plays out every simulated tournament and crowns the per-run leader. `+
+ `The projected <b>winning total is ~${mb.bootExp} goals</b> (median ${mb.bootMedian}) — above any single player&rsquo;s expected tally, because the Boot is an order statistic: it goes to whoever runs hottest over the eight-game path to the title, not the highest average. `+
+ `On that measure the favourite is <b>${mb.bootFav}</b> at ${mb.bootFavPct}%.`;
 
 /* groups */
 const tcell=t=>`<td class="team">${dot(t)} <span class="tname">${t}</span> <span class="code">${code(t)}</span></td>`;
@@ -359,8 +379,9 @@ document.getElementById('methodNote').innerHTML=
  `<b>Method.</b> Elo ratings (verified 48/48 against live World Football Elo) drive a Poisson goal model; `+
  `${m.sims.toLocaleString()} Monte-Carlo tournaments resolve group tables and the 8-best-third race. Champion odds come from a `+
  `separate full-bracket knockout sim with correlated rating uncertainty (&sigma;=${m.champSigma}). `+
- `<b>Scorers</b> project each player&rsquo;s expected goals — their team&rsquo;s expected goals across its simulated run &times; their share of the attack, with several scorers per team so co-talismen compete (Messi #7 edges Valencia #8). `+
- `Raw expected totals, not scaled — the realised Golden Boot usually runs a goal or two higher. No &ldquo;chemistry&rdquo; fudge anywhere: predictions are pure verified Elo.`;
+ `<b>Scorers (&dagger;)</b> split each team&rsquo;s expected goals into three channels — open play (~88%, spread across its attackers by role), penalties (~10%) and direct free kicks (~1.5%), the last two concentrated on the designated taker. `+
+ `A Monte-Carlo Golden Boot sim then plays out every simulated tournament — each player taking a competed-for share of their team&rsquo;s actual goals that run — and crowns the leader, giving each contender&rsquo;s <b>chance to win</b> (an order statistic that rewards a high ceiling, not just a high mean). `+
+ `<b>&dagger;</b> The player split (attacking roles, penalty &amp; free-kick takers) is an <b>analyst prior</b> — the leakage-free backtest scores match results, not individual goals, so it can&rsquo;t validate it. The match &amp; champion model above is pure verified Elo, no &ldquo;chemistry&rdquo; fudge.`;
 document.getElementById('footMeta').textContent=`champion: ${c.team} ${c.champ}% · golden boot: ${s0.player} ${s0.goals}`;
 
 /* reveal observer */
