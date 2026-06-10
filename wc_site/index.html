@@ -76,7 +76,7 @@ section{padding:84px 0 24px}
   background:linear-gradient(180deg,#fff8e4,var(--gold) 70%,var(--gold2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .champ .flagbar{height:5px;width:96px;border-radius:3px;margin:14px 0 22px}
 .champ-stats{display:flex;gap:10px}
-.cstat{flex:1;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:13px;padding:15px 14px}
+.cstat{flex:1;min-width:0;background:rgba(0,0,0,.28);border:1px solid var(--line);border-radius:13px;padding:15px 14px}
 .cstat .v{font-family:var(--mono);font-weight:600;font-size:26px;color:var(--gold);letter-spacing:-.02em}
 .cstat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
 .name-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -191,6 +191,12 @@ footer{color:var(--faint);font-size:12px;font-family:var(--mono);padding:24px 0 
   .brand{font-size:12px}
   .brand small{display:none}
   .badge{font-size:10px;padding:4px 8px;letter-spacing:.02em}
+  /* champion card: tighten padding + shrink stat values so all 3 fit */
+  .champ{padding:24px 18px}
+  .champ-stats{gap:6px}
+  .cstat{padding:10px 8px}
+  .cstat .v{font-size:20px}
+  .cstat .l{font-size:9px;letter-spacing:.06em}
   /* champion tag: prevent wrapping */
   .champ .tag{font-size:10px;letter-spacing:.1em;flex-wrap:nowrap;white-space:nowrap}
   /* title race: drop code (flag = visual ID), tighter grid */
