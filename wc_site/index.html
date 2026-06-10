@@ -359,8 +359,8 @@ document.getElementById('methodNote').innerHTML=
  `<b>Method.</b> Elo ratings (verified 48/48 against live World Football Elo) drive a Poisson goal model; `+
  `${m.sims.toLocaleString()} Monte-Carlo tournaments resolve group tables and the 8-best-third race. Champion odds come from a `+
  `separate full-bracket knockout sim with correlated rating uncertainty (&sigma;=${m.champSigma}). `+
- `<b>Scorers</b> are a transparent projection — each team&rsquo;s expected tournament goals &times; its talisman&rsquo;s share of the attack — `+
- `not a fitted player model. No unvalidated &ldquo;chemistry&rdquo; adjustment is applied: predictions are pure verified Elo.`;
+ `<b>Scorers</b> project each player&rsquo;s expected goals — their team&rsquo;s expected goals across its simulated run &times; their share of the attack, with several scorers per team so co-talismen compete (Messi #7 edges Valencia #8). `+
+ `Raw expected totals, not scaled — the realised Golden Boot usually runs a goal or two higher. No &ldquo;chemistry&rdquo; fudge anywhere: predictions are pure verified Elo.`;
 document.getElementById('footMeta').textContent=`champion: ${c.team} ${c.champ}% · golden boot: ${s0.player} ${s0.goals}`;
 
 /* reveal observer */

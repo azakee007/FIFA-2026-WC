@@ -81,18 +81,34 @@ def expected_goals_per_team(teams, groups, fixtures, N=15000):
         play(lose[101],lose[102])
     return {names[i]: goals[i]/N for i in range(T)}
 
-# transparent striker map: team -> (display name, share of team goals)
-STRIKER = {
-    'France':('Kylian Mbappé',0.46),'Norway':('Erling Haaland',0.56),'England':('Harry Kane',0.44),
-    'Argentina':('Lautaro Martínez',0.38),'Egypt':('Mohamed Salah',0.52),'Belgium':('Romelu Lukaku',0.44),
-    'Spain':('Lamine Yamal',0.34),'Portugal':('Cristiano Ronaldo',0.40),'Brazil':('Vinícius Júnior',0.34),
-    'Colombia':('Luis Díaz',0.40),'Netherlands':('Cody Gakpo',0.34),'Uruguay':('Darwin Núñez',0.42),
-    'Germany':('Florian Wirtz',0.28),'Ecuador':('Enner Valencia',0.42),'Mexico':('Raúl Jiménez',0.40),
-    'Croatia':('Andrej Kramarić',0.30),'Switzerland':('Breel Embolo',0.34),'Japan':('Kaoru Mitoma',0.26),
-    'Morocco':('Youssef En-Nesyri',0.40),'USA':('Folarin Balogun',0.34),'Senegal':('Nicolas Jackson',0.36),
-    'Iran':('Mehdi Taremi',0.46),'Canada':('Jonathan David',0.44),'Uzbekistan':('Eldor Shomurodov',0.42),
+# Goal-share map: team -> [(player, share of the team's tournament goals), ...].
+# Multiple attackers per team so co-talismen (e.g. Messi AND Lautaro) all compete;
+# penalty-takers / focal strikers carry higher shares. Shares sum to <1 per team
+# (the remainder is spread across the rest of the squad + own goals).
+SCORERS = {
+ 'France':[('Kylian Mbappé',0.40),('Marcus Thuram',0.15),('Michael Olise',0.12),('Ousmane Dembélé',0.10)],
+ 'Argentina':[('Lautaro Martínez',0.26),('Lionel Messi',0.25),('Julián Álvarez',0.19)],
+ 'Spain':[('Lamine Yamal',0.22),('Mikel Oyarzabal',0.20),('Dani Olmo',0.16),('Álvaro Morata',0.12)],
+ 'England':[('Harry Kane',0.42),('Jude Bellingham',0.15),('Bukayo Saka',0.14)],
+ 'Brazil':[('Vinícius Júnior',0.26),('Raphinha',0.20),('Matheus Cunha',0.15),('Endrick',0.12)],
+ 'Portugal':[('Cristiano Ronaldo',0.32),('Rafael Leão',0.17),('Bruno Fernandes',0.15)],
+ 'Norway':[('Erling Haaland',0.54),('Martin Ødegaard',0.14)],
+ 'Netherlands':[('Cody Gakpo',0.25),('Memphis Depay',0.22),('Donyell Malen',0.13)],
+ 'Belgium':[('Romelu Lukaku',0.40),('Kevin De Bruyne',0.16),('Jérémy Doku',0.13)],
+ 'Colombia':[('Luis Díaz',0.32),('Rafael Santos Borré',0.18),('James Rodríguez',0.15)],
+ 'Germany':[('Kai Havertz',0.22),('Florian Wirtz',0.20),('Jamal Musiala',0.18)],
+ 'Uruguay':[('Darwin Núñez',0.40),('Facundo Pellistri',0.13)],
+ 'Egypt':[('Mohamed Salah',0.50),('Omar Marmoush',0.18)],
+ 'Ecuador':[('Enner Valencia',0.36),('Kendry Páez',0.12)],
+ 'Croatia':[('Andrej Kramarić',0.24),('Ante Budimir',0.22)],
+ 'Morocco':[('Youssef En-Nesyri',0.36),('Brahim Díaz',0.16)],
+ 'Mexico':[('Raúl Jiménez',0.34),('Santiago Giménez',0.22)],
+ 'Japan':[('Ayase Ueda',0.24),('Kaoru Mitoma',0.20)],
+ 'Switzerland':[('Breel Embolo',0.34),('Dan Ndoye',0.16)],
+ 'Senegal':[('Nicolas Jackson',0.30),('Ismaïla Sarr',0.18)],
+ 'Turkiye':[('Kerem Aktürkoğlu',0.24),('Arda Güler',0.20)],
+ 'USA':[('Folarin Balogun',0.32),('Christian Pulisic',0.22)],
 }
-RESULT_RANK = {'Q':0,'Q3':1,'OUT':2}
 
 def main():
     teams = load_teams(os.path.join(HERE,'teams.csv'))
@@ -143,17 +159,25 @@ def main():
             if m: champ_rows.append(dict(rank=int(m.group(1)),team=m.group(2).strip(),
                   champ=float(m.group(3)),final=float(m.group(4)),semi=float(m.group(5))))
 
-    # scorer projection: team expected tournament goals x striker share, scaled to a
-    # realistic golden-boot range (leader ~7). Transparent heuristic, not a fitted model.
+    # scorer projection: each player's EXPECTED goals = their team's expected
+    # tournament goals (group + simulated knockout run) x their share of the attack.
+    # Raw expected goals -- no scaling. Multiple scorers per team compete head-to-head.
     eg = expected_goals_per_team(teams, groups, fixtures)
     proj=[]
-    for team,(player,share) in STRIKER.items():
-        proj.append(dict(player=player,team=team,share=share,raw=eg[team]*share))
-    proj.sort(key=lambda p:-p['raw'])
-    scale = 7.0/proj[0]['raw']
-    for p in proj: p['goals']=round(p['raw']*scale,1)
+    for team,lst in SCORERS.items():
+        for player,share in lst:
+            proj.append(dict(player=player,team=team,share=share,goals=round(eg[team]*share,1)))
+    proj.sort(key=lambda p:-p['goals'])
     scorers=[dict(rank=k+1,player=p['player'],team=p['team'],goals=p['goals'],
                   share=round(p['share']*100)) for k,p in enumerate(proj[:6])]
+    # verification print: full top-12 + where Messi and Valencia land
+    print("scorer ranking (expected goals):")
+    for k,p in enumerate(proj[:12],1): print(f"  {k:2} {p['player']:<20} {p['team']:<11} {p['goals']}")
+    for nm in ('Lionel Messi','Enner Valencia'):
+        r=next((i+1 for i,p in enumerate(proj) if p['player']==nm),None)
+        print(f"  -> {nm}: rank {r}")
+    print(f"  eg top teams: " + ", ".join(f"{t} {eg[t]:.1f}" for t in
+          sorted(eg,key=lambda x:-eg[x])[:6]))
 
     DATA = dict(
         champion=champ_rows[0] if champ_rows else None,

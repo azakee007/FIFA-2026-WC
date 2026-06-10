@@ -69,43 +69,43 @@ window.WC = {
    "rank": 1,
    "player": "Kylian Mbappé",
    "team": "France",
-   "goals": 7.0,
-   "share": 46
+   "goals": 4.8,
+   "share": 40
   },
   {
    "rank": 2,
-   "player": "Lamine Yamal",
-   "team": "Spain",
-   "goals": 6.9,
-   "share": 34
+   "player": "Harry Kane",
+   "team": "England",
+   "goals": 4.8,
+   "share": 42
   },
   {
    "rank": 3,
-   "player": "Lautaro Martínez",
-   "team": "Argentina",
-   "goals": 6.5,
-   "share": 38
+   "player": "Erling Haaland",
+   "team": "Norway",
+   "goals": 3.8,
+   "share": 54
   },
   {
    "rank": 4,
-   "player": "Harry Kane",
-   "team": "England",
-   "goals": 6.4,
-   "share": 44
+   "player": "Lautaro Martínez",
+   "team": "Argentina",
+   "goals": 3.5,
+   "share": 26
   },
   {
    "rank": 5,
-   "player": "Erling Haaland",
-   "team": "Norway",
-   "goals": 5.0,
-   "share": 56
+   "player": "Lamine Yamal",
+   "team": "Spain",
+   "goals": 3.5,
+   "share": 22
   },
   {
    "rank": 6,
-   "player": "Enner Valencia",
-   "team": "Ecuador",
-   "goals": 5.0,
-   "share": 42
+   "player": "Romelu Lukaku",
+   "team": "Belgium",
+   "goals": 3.5,
+   "share": 40
   }
  ],
  "groups": {
