@@ -148,6 +148,17 @@ CONFIG = dict(
 - **Animations**: IntersectionObserver stagger-reveal, `prefers-reduced-motion` respected
 - **Film grain**: SVG `feTurbulence` in `::after` overlay
 
+### Flags
+Country flags rendered via `flagcdn.com/w40/{iso2}.png` in circular `.fcir` containers (20×20px, `object-fit:cover`). England uses `gb-eng`, Scotland uses `gb-sct`. The `ISO2` JS object maps all 48 team names to their codes. Replaces old solid-colour `.dotc` circles. The `dot(t)` function builds the `<span class="fcir">` HTML with team colour as background fallback while the image loads.
+
+### Champion card layout
+- Trophy SVG is in a `.name-row` flex row alongside `.name` (not `position:absolute`), so it never overlaps the stats.
+- `.cstat` has `min-width:0` globally so flex items can shrink below their content width on narrow viewports.
+- `@media(max-width:600px)`: card padding reduced to `24px 18px`, stat box padding to `10px 8px`, `.cstat .v` font to `20px` — all three stat values (win/final/semi) fit cleanly at 375px.
+
+### Title race bar animation
+- `.rrow.in .fill{transform:scaleX(var(--w,0))}` is the trigger rule. The `--w` CSS variable is set inline by JS; the IntersectionObserver adds `.in` to trigger the `scaleX` transition.
+
 **To refresh the page data** after model changes:
 ```bash
 python3 champion.py        # regenerates champion.md
@@ -197,3 +208,10 @@ git push
 3. **Top scorer logic** — originally a single-striker-per-team dict; then a flat per-player `share`; now a **3-channel model** (open play + penalties + free kicks) so set-piece takers are modelled explicitly, not faked via an inflated share. See "3-channel top-scorer model" above. Goals are still raw expected goals (no scaling).
 4. **squad_scan.py null bytes** — `grep` failed on `squad-lists.txt`. Fixed: binary read + `.replace(b'\x00', b'')`.
 5. **squad_scan.py parsed only 45/48** — regex failed on accented names. Fixed: changed to `r'^(.+?) \([A-Z]{3}\)\s*'`.
+6. **Title race bars stuck at width 0** — `.fill` had `transform:scaleX(0)` + transition but no rule to trigger the target value. Fixed by adding `.rrow.in .fill{transform:scaleX(var(--w,0))}`.
+7. **Country flags** — old solid-colour `.dotc` circles replaced with real flag images via `flagcdn.com`. `.fcir` CSS class with `border-radius:50%;overflow:hidden;object-fit:cover`. `ISO2` JS object maps all 48 team names; `gb-eng`/`gb-sct` for England/Scotland subdivisions.
+8. **Mobile nav wrapping to 2 lines** — brand font too wide at 375px. Fixed: `font-size:12px`, `<small>` subtitle hidden, badge padding/size reduced.
+9. **3-letter codes overlapping title race bars** — `.rrow .tm` lacked `min-width:0`, flex content overflowed grid column. Fixed: `min-width:0;overflow:hidden` + `.code` hidden on mobile + wider team column.
+10. **Group table columns running together on mobile** — zero cell padding. Fixed: `thead th{padding:0 3px 6px}`, `tbody td{padding:6px 2px}`, GD column hidden via `nth-child(7)`.
+11. **Trophy overlapping "Reach Semi" stat** — was `position:absolute;bottom:22px`. Fixed by moving to `.name-row` flex container (inline-right of team name, above stats row).
+12. **Champion card stats overflow on mobile** — "Reach Semi" block overflowed card boundary at 375px. Fixed: `min-width:0` on `.cstat` globally + `@media(max-width:600px)` overrides reducing padding and font size.
