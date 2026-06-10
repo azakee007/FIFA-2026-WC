@@ -1,0 +1,49 @@
+team,group,elo,elo_src,host,top5pct,avg_age
+Mexico,A,1875,live,1,19,27.9
+Czechia,A,1740,live,0,27,27.6
+South Africa,A,1518,live,0,8,26.8
+South Korea,A,1758,live,0,27,28.1
+Switzerland,B,1891,live,0,92,28.3
+Canada,B,1788,live,1,42,26.9
+Bosnia,B,1595,live,0,42,26.4
+Qatar,B,1421,live,0,4,29.5
+Brazil,C,1991,live,0,54,29.4
+Morocco,C,1827,live,0,62,26.4
+Scotland,C,1782,live,0,58,29.2
+Haiti,C,1548,live,0,31,27.6
+USA,D,1726,live,1,54,26.9
+Turkiye,D,1910,live,0,35,27.7
+Australia,D,1777,live,0,35,27.4
+Paraguay,D,1833,live,0,19,29.0
+Germany,E,1932,live,0,96,28.0
+Ecuador,E,1938,live,0,27,26.1
+Ivory Coast,E,1695,live,0,46,25.8
+Curacao,E,1434,live,0,12,28.0
+Netherlands,F,1948,live,0,85,27.8
+Japan,F,1906,live,0,50,27.7
+Sweden,F,1712,live,0,65,27.6
+Tunisia,F,1628,live,0,35,26.6
+Belgium,G,1893,live,0,77,27.6
+Egypt,G,1696,live,0,19,29.1
+Iran,G,1772,live,0,0,30.3
+New Zealand,G,1562,live,0,27,28.1
+Spain,H,2157,live,0,100,26.7
+Uruguay,H,1892,live,0,31,28.7
+Saudi Arabia,H,1569,live,0,4,28.5
+Cape Verde,H,1578,live,0,4,29.7
+France,I,2063,live,0,92,27.0
+Senegal,I,1867,live,0,77,27.1
+Norway,I,1914,live,0,73,26.8
+Iraq,I,1618,live,0,8,26.9
+Argentina,J,2114,live,0,77,29.0
+Austria,J,1830,live,0,69,28.5
+Algeria,J,1760,live,0,50,26.9
+Jordan,J,1680,live,0,4,28.5
+Portugal,K,1986,live,0,65,28.0
+Colombia,K,1982,live,0,35,30.1
+Congo DR,K,1652,live,0,50,29.1
+Uzbekistan,K,1714,live,0,4,28.5
+England,L,2021,live,0,96,27.1
+Croatia,L,1911,live,0,69,28.3
+Ghana,L,1510,live,0,65,27.0
+Panama,L,1730,live,0,4,30.4
