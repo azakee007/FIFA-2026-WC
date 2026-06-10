@@ -59,7 +59,7 @@ CONFIG = dict(
 
 ---
 
-## Current Predictions (as of June 2026)
+## Current Predictions (as of June 10, 2026)
 
 ### Champion odds (top 8)
 | Rank | Team | Champion | Final | Semi |
@@ -77,10 +77,10 @@ CONFIG = dict(
 | Rank | Player | Team | Proj. Goals | open play + set pieces |
 |---|---|---|---|---|
 | 1 | Kylian Mbappé | France | 5.0 | 3.6 + 1.4 (PK+FK) |
-| 2 | Harry Kane | England | 4.8 | 3.6 + 1.1 (PK) |
+| 2 | Harry Kane | England | 4.7 | 3.6 + 1.1 (PK) |
 | 3 | Erling Haaland | Norway | 3.8 | 3.1 + 0.7 (PK) |
 | 4 | Lamine Yamal | Spain | 3.7 | 3.5 + 0.2 (FK) |
-| 5 | Lionel Messi | Argentina | 3.6 | 2.0 + 1.5 (PK+FK) |
+| 5 | Lionel Messi | Argentina | 3.6 | 2.0 + 1.6 (PK+FK) |
 | 6 | Lautaro Martínez | Argentina | 3.5 | 3.5 + 0.0 |
 | 7 | Enner Valencia | Ecuador | 3.5 | 2.5 + 0.9 (PK) |
 
@@ -91,11 +91,11 @@ CONFIG = dict(
 |---|---|---|---|
 | 1 | Kylian Mbappé | France | 18% |
 | 2 | Harry Kane | England | 15% |
-| 3 | Erling Haaland | Norway | 8% |
+| 3 | Erling Haaland | Norway | 9% |
 | 4 | Lamine Yamal | Spain | 6% |
 | 5 | Lionel Messi | Argentina | 6% |
 
-*Projected **winning total ~8.3 goals** (median 8; P(≥7)=87%, P(≥8)=63%) — above any single expected tally because the Boot goes to whoever runs hottest over the expanded 8-game path to the title (3 group + R32/R16/QF/SF/F). Built via `simulate_golden_boot()`.*
+*Projected **winning total ~8.3 goals** (median 8; P(≥7)=86%, P(≥8)=63%) — above any single expected tally because the Boot goes to whoever runs hottest over the expanded 8-game path to the title (3 group + R32/R16/QF/SF/F). Favourite: Mbappé ~18%, Kane ~15%, Haaland ~9%. Built via `simulate_golden_boot()`.*
 
 ---
 
@@ -111,7 +111,7 @@ CONFIG = dict(
 - **Why**: concentration of set-piece duty is the real reason pen/FK takers (Kane, Salah, Mbappé, Messi) win Golden Boots — the old flat share could only fake it by inflating one number. The new structure is auditable (per-channel breakdown shown on the page) and role-aware.
 - **Disclosure**: the player split (roles + taker assignments) is an **analyst prior** marked `†` — the leakage-free match-RPS backtest scores results, not individual goals, so it cannot validate it. The team-level `eg`, match, and champion models remain pure verified Elo.
 - **Taker assignments are priors** — set in the `SCORERS` dict (`pen=`/`fk=` keys). Update them when designated takers change (e.g. retirements, form). `pen` accepts a `[(player, weight), ...]` list to split a primary/backup.
-- **Golden-Boot probability sim (BUILT)**: `expected_goals_per_team()` now returns the per-sim `(T, N)` team-goal matrix `tg`; `simulate_golden_boot()` allocates each team's *actual* goals in each sim among its scorers via a sequential-binomial (= multinomial) draw, so teammates **compete for the same goals**, and crowns the per-sim leader. This yields each player's **P(win Golden Boot)** (an order statistic — rewards a high ceiling, not just the mean) and the projected **winning total** (`bootExp`/`bootMedian`), which runs above any single expected value. Ties split the credit. Current: winning total ~8.3 (median 8) over the 8-game path; favourite Mbappé ~18%, Kane ~15%, Haaland ~8%.
+- **Golden-Boot probability sim (BUILT)**: `expected_goals_per_team()` now returns the per-sim `(T, N)` team-goal matrix `tg`; `simulate_golden_boot()` allocates each team's *actual* goals in each sim among its scorers via a sequential-binomial (= multinomial) draw, so teammates **compete for the same goals**, and crowns the per-sim leader. This yields each player's **P(win Golden Boot)** (an order statistic — rewards a high ceiling, not just the mean) and the projected **winning total** (`bootExp`/`bootMedian`), which runs above any single expected value. Ties split the credit. Current: winning total ~8.3 (median 8) over the 8-game path; favourite Mbappé ~18%, Kane ~15%, Haaland ~9%.
 
 ### Cohesion bonus
 - **Status: ZEROED (reference-only)**. Column `cohesion_bonus` exists in `teams.csv` with all values `0`.
